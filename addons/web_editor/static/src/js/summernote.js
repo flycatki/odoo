@@ -676,6 +676,13 @@ dom.isFont = function (node) {
 dom.isVisibleText = function (textNode) {
   return !!textNode.textContent.match(/\S|\u00A0/);
 };
+
+/* avoid thinking HTML comment are visible */
+var old_isVisiblePoint = dom.isVisiblePoint;
+dom.isVisiblePoint = function (point) {
+  return point.node.nodeType !== 8 && old_isVisiblePoint.apply(this, arguments);
+};
+
 /**
  * order the style of the node to compare 2 nodes and remove attribute if empty
  *
@@ -813,17 +820,6 @@ range.WrappedRange.prototype.reRange = function (keep_end, isNotBreakable) {
     }
 
     return new range.WrappedRange(sc, so, ec, eo);
-};
-range.WrappedRange.prototype.deleteContents = function (towrite) {
-    var prevBP = dom.removeBetween(this.sc, this.so, this.ec, this.eo, towrite);
-
-    $(dom.node(prevBP.sc)).trigger("click"); // trigger click to disable and reanable editor and image handler
-    return new range.WrappedRange(
-      prevBP.sc,
-      prevBP.so,
-      prevBP.ec,
-      prevBP.eo
-    );
 };
 // isOnImg: judge whether range is an image node or not
 range.WrappedRange.prototype.isOnImg = function () {
@@ -1242,10 +1238,13 @@ $.summernote.pluginEvents.delete = function (event, editor, layoutInfo) {
     if (!r.isCollapsed()) {
         if (dom.isCell(dom.node(r.sc)) || dom.isCell(dom.node(r.ec))) {
             remove_table_content(r);
-            return range.create(r.ec, 0).select();
+            range.create(r.ec, 0).select();
+        } else {
+            r = r.deleteContents();
+            r.select();
         }
-        r = r.deleteContents();
-        r.select();
+        event.preventDefault();
+        return false;
     }
 
     var target = r.ec;
@@ -1378,10 +1377,13 @@ $.summernote.pluginEvents.backspace = function (event, editor, layoutInfo) {
     if (!r.isCollapsed()) {
         if (dom.isCell(dom.node(r.sc)) || dom.isCell(dom.node(r.ec))) {
             remove_table_content(r);
-            return range.create(r.sc, dom.nodeLength(r.sc)).select();
+            range.create(r.sc, dom.nodeLength(r.sc)).select();
+        } else {
+            r = r.deleteContents();
+            r.select();
         }
-        r = r.deleteContents();
-        r.select();
+        event.preventDefault();
+        return false;
     }
 
     var target = r.sc;
